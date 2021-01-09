@@ -12,52 +12,89 @@ class Dino(pygame.sprite.Sprite):
         self.shift1 = pygame.image.load(os.path.join(img_folder, 'dino/shift_one.png'))
         self.shift2 = pygame.image.load(os.path.join(img_folder, 'dino/shift_two.png'))
 
+        self.jump_sound = pygame.mixer.Sound('sound/jump.wav')
+        self.die_sound = pygame.mixer.Sound('sound/die.wav')
+        self.checkPoint_sound = pygame.mixer.Sound('sound/checkPoint.wav')
+
         self.image = self.normal
+
+        self.default_rect = self.normal.get_rect()
+        self.down_rect = self.shift1.get_rect()
+
         self.rect = self.image.get_rect()
         self.rect.x = 15
         self.y = int(h / 2 - 18 * 2.2)
         self.rect.y = self.y
         self.field = field
         self.last = 0
-        self.jump_possible = 1
-        self.t = 0
-        self.v = 0
-        self.g = 15
+        self.image_tick = 0
+        self.counter = 0
+
+        self.grav = 0.6
+        self.default_jump_speed = -10.5
+        self.vy = 0
+        self.tick_of_btn_jump_pressed = 0
+        self.isJump = False
+        self.isDown = False
 
     def jump(self):
-        if self.y + 10 >= self.rect.y >= self.y:
-            self.jump_possible = 1
-            self.rect.y = self.y
-            self.t = 0
-            self.v = 0
-        if pygame.key.get_pressed()[pygame.K_SPACE]:
-            if self.jump_possible:
-                self.v += 130
-            if not self.rect.y > self.y - 10:
-                self.jump_possible = 0
+        if (pygame.key.get_pressed()[pygame.K_SPACE] or pygame.key.get_pressed(
+        )[pygame.K_UP]) and not self.isJump and not self.isDown:
+            self.tick_of_btn_jump_pressed += 1
+            if self.tick_of_btn_jump_pressed >= 7:
+                self.vy = self.default_jump_speed
+                self.isJump = True
+            else:
+                self.vy = self.default_jump_speed * (self.tick_of_btn_jump_pressed / 7)
         else:
-            if self.rect.y != self.y:
-                self.jump_possible = 0
-        self.t += 1
-        self.rect.y = self.y - (self.v * self.t - (self.g * self.t ** 2) / 2) / 100
+            if self.tick_of_btn_jump_pressed > 0:
+                self.isJump = True
+                self.tick_of_btn_jump_pressed = 0
+                self.jump_sound.play()
+            if self.isJump:
+                self.rect.y += self.vy
+                self.vy += self.grav * (2 if self.isDown else 1)
+                self.image_tick = 0
+            if self.rect.y >= self.y:
+                self.rect.y = self.y
+                self.isJump = False
+
+    def down(self):
+        if (pygame.key.get_pressed()[pygame.K_LSHIFT] or pygame.key.get_pressed()[pygame.K_DOWN]):
+            self.isDown = True
+            self.image_tick = (self.image_tick + 1) % 2 + 4
+        else:
+            self.isDown = False
 
     def update(self):
-        if -v < self.field.rect.x % 50 <= v and self.field.rect.x != self.last:
-            self.change_sprite_tick()
-            self.last = self.field.rect.x
+        if self.counter % 5 == 0:
+            self.image_tick = (self.image_tick + 1) % 2 + 2
+
         self.jump()
+        self.down()
+
+        self.change_sprite_tick()
+        self.counter += 1
 
     def change_sprite_tick(self):
-        if self.image == self.normal1:
+        if self.image_tick == 0:
+            self.image = self.normal
+        elif self.image_tick == 2:
             self.image = self.normal2
-        elif self.image == self.normal2:
+        elif self.image_tick == 3:
             self.image = self.normal1
-        elif self.image == self.shift1:
+
+        elif self.image_tick == 4:
             self.image = self.shift2
-        elif self.image == self.shift2:
+        elif self.image_tick == 5:
             self.image = self.shift1
-        elif self.image == self.normal:
-            self.image = self.normal1
+
+        if self.image_tick in [0, 2, 3]:
+            self.rect.width = self.default_rect.width
+        elif self.image_tick in [4, 5]:
+            self.rect.width = self.down_rect.width
+        #pygame.draw.rect(self.field.screen, "black", self.rect)
+        #pygame.display.flip()
 
 
 class Enemy(pygame.sprite.Sprite):
@@ -91,9 +128,9 @@ class Field(pygame.sprite.Sprite):
         if self.status:
             self.rect.x -= v
             if -v < self.rect.x % 50 < v:
-                print(self.rect.x % 50, self.rect.x)
+                #print(self.rect.x % 50, self.rect.x)
                 self.count += 1
-                print(self.count)
+                #print(self.count)
             if fps <= 360 and self.count % 100 == 0 and self.last_speed_up != self.count:
                 fps += 10
                 self.last_speed_up = self.count
@@ -108,7 +145,7 @@ class Field(pygame.sprite.Sprite):
 
     def day_and_night_switch(self):
         self.time = not self.time
-        print(self.time)
+        #print(self.time)
 
     def render(self):
         color = (0, 0, 0) if not self.time else (255, 255, 255)
@@ -130,7 +167,7 @@ if __name__ == '__main__':
     cactus = Enemy()
     sprites.add(cactus)
     v = 6
-    fps = 100
+    fps = 60
     running = True
     while running:
         for event in pygame.event.get():
