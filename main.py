@@ -2,6 +2,60 @@ import pygame
 import os
 
 
+def load_sprite_sheet(sheetname, x, y, sx=-1, sy=-1, colorkey=None):
+    fullname = os.path.join('img', sheetname)
+    sheet = pygame.image.load(fullname)
+    sheet = sheet.convert()
+    sheet_rect = sheet.get_rect()
+    sprites = []
+    sizex = sheet_rect.width / x
+    sizey = sheet_rect.height / y
+    for i in range(y):
+        for j in range(x):
+            rect = pygame.Rect((j * sizex, i * sizey, sizex, sizey))
+            image = pygame.Surface(rect.size)
+            image = image.convert()
+            image.blit(sheet, (0, 0), rect)
+            if colorkey is not None:
+                if colorkey is -1:
+                    colorkey = image.get_at((0, 0))
+                image.set_colorkey(colorkey, 16384)
+            if sx != -1 or sy != -1:
+                image = pygame.transform.scale(image, (sx, sy))
+            sprites.append(image)
+    sprite_rect = sprites[0].get_rect()
+    return (sprites, sprite_rect)
+
+
+class Scoreboard():
+    def __init__(self, width, height, x=-1, y=-1):
+        self.score = 0
+        self.tempimages, self.temprect = load_sprite_sheet('numbers.png', 12, 1, 11, int(11 * 6 / 5),
+                                                           -1)
+        self.image = pygame.Surface((55, int(11 * 6 / 5)))
+        self.rect = self.image.get_rect()
+        if x == -1:
+            self.rect.left = width * 0.89
+        else:
+            self.rect.left = x
+        if y == -1:
+            self.rect.top = height * 0.1
+        else:
+            self.rect.top = y
+
+    def draw(self):
+        screen.blit(self.image, self.rect)
+
+    def update(self, score):
+        score_digits = [int(i) for i in str(score)]
+        score_digits = [0] * (5 - len(score_digits)) + score_digits
+        self.image.fill(background_color)
+        for s in score_digits:
+            self.image.blit(self.tempimages[s], self.temprect)
+            self.temprect.left += self.temprect.width
+        self.temprect.left = 0
+
+
 class Dino(pygame.sprite.Sprite):
     def __init__(self, field):
         pygame.sprite.Sprite.__init__(self)
@@ -36,6 +90,7 @@ class Dino(pygame.sprite.Sprite):
         self.tick_of_btn_jump_pressed = 0
         self.isJump = False
         self.isDown = False
+        self.isStart = False
 
     def jump(self):
         if (pygame.key.get_pressed()[pygame.K_SPACE] or pygame.key.get_pressed(
@@ -51,9 +106,11 @@ class Dino(pygame.sprite.Sprite):
                 self.isJump = True
                 self.tick_of_btn_jump_pressed = 0
                 self.jump_sound.play()
+                if self.vy >= -9:
+                    self.vy = -9
             if self.isJump:
                 self.rect.y += self.vy
-                self.vy += self.grav * (2 if self.isDown else 1)
+                self.vy += self.grav * (3 if self.isDown else 1)
                 self.image_tick = 0
             if self.rect.y >= self.y:
                 self.rect.y = self.y
@@ -67,14 +124,16 @@ class Dino(pygame.sprite.Sprite):
             self.isDown = False
 
     def update(self):
-        if self.counter % 5 == 0:
-            self.image_tick = (self.image_tick + 1) % 2 + 2
-
         self.jump()
         self.down()
+        if self.isStart:
+            if self.counter % 5 == 0:
+                self.image_tick = (self.image_tick + 1) % 2 + 2
+            self.change_sprite_tick()
+            self.counter += 1
 
-        self.change_sprite_tick()
-        self.counter += 1
+    def draw(self):
+        screen.blit(self.image, self.rect)
 
     def change_sprite_tick(self):
         if self.image_tick == 0:
@@ -151,10 +210,17 @@ class Field(pygame.sprite.Sprite):
         color = (0, 0, 0) if not self.time else (255, 255, 255)
         self.screen.fill(color)
 
+    def get_score(self):
+        return self.count
+
+    def draw(self):
+        screen.blit(self.image, self.rect)
+
 
 if __name__ == '__main__':
     pygame.init()
     w, h = 800, 600
+    background_color = (255, 255, 255)
     screen = pygame.display.set_mode((w, h))
     game_folder = os.path.dirname(__file__)
     img_folder = os.path.join(game_folder, 'img')
@@ -164,19 +230,39 @@ if __name__ == '__main__':
     dino = Dino(field)
     sprites.add(field)
     sprites.add(dino)
+    scoreboard = Scoreboard(w, h)
+    hiscoreboard = Scoreboard(w, h, int(w * 0.78))
     cactus = Enemy()
     sprites.add(cactus)
     v = 6
     fps = 60
+    clock = pygame.time.Clock()
     running = True
+    game_start = False
     while running:
+        while not game_start:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                    break
+            field.render()
+            field.draw()
+            dino.update()
+            dino.draw()
+            clock.tick(fps)
+            pygame.display.flip()
+            if dino.isJump:
+                dino.isStart = True
+            if not dino.isJump and dino.isStart:
+                game_start = True
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
         sprites.update()
         field.render()
         sprites.draw(screen)
-        clock = pygame.time.Clock()
+        scoreboard.update(field.get_score())
+        scoreboard.draw()
         clock.tick(fps)
         pygame.display.flip()
     pygame.quit()
