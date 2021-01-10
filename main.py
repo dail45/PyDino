@@ -1,5 +1,6 @@
 import pygame
 import os
+import sys
 
 
 def load_sprite_sheet(sheetname, x, y, sx=-1, sy=-1, colorkey=None):
@@ -125,11 +126,11 @@ class Dino(pygame.sprite.Sprite):
 
     def update(self):
         self.jump()
-        self.down()
         if self.isStart:
+            self.down()
+            self.change_sprite_tick()
             if self.counter % 5 == 0:
                 self.image_tick = (self.image_tick + 1) % 2 + 2
-            self.change_sprite_tick()
             self.counter += 1
 
     def draw(self):
@@ -181,6 +182,7 @@ class Field(pygame.sprite.Sprite):
         self.screen = screen
         self.time = True
         self.last_speed_up = 0
+        self.last_day_and_night_switch = 0
 
     def update(self):
         global fps
@@ -195,6 +197,8 @@ class Field(pygame.sprite.Sprite):
                 self.last_speed_up = self.count
         if self.rect.left <= -1450:
             self.rect.left = 0
+        if self.get_score() > 0 and self.get_score() % 100 == 0:
+            self.day_and_night_switch()
 
     def start(self):
         self.status = 1
@@ -203,12 +207,21 @@ class Field(pygame.sprite.Sprite):
         self.status = 0
 
     def day_and_night_switch(self):
-        self.time = not self.time
-        #print(self.time)
+        if self.get_score() != self.last_day_and_night_switch:
+            self.time = not self.time
+            self.last_day_and_night_switch = self.get_score()
 
     def render(self):
-        color = (0, 0, 0) if not self.time else (255, 255, 255)
-        self.screen.fill(color)
+        global background_color
+        self.screen.fill(background_color)
+        if self.time and background_color < [255, 255, 255]:
+            background_color = [i + 2 for i in background_color]
+            if background_color > [255, 255, 255]:
+                background_color = [255, 255, 255]
+        elif not self.time and background_color > [20, 20, 20]:
+            background_color = [i - 2 for i in background_color]
+            if background_color < [30, 30, 30]:
+                background_color = [30, 30, 30]
 
     def get_score(self):
         return self.count
@@ -220,7 +233,7 @@ class Field(pygame.sprite.Sprite):
 if __name__ == '__main__':
     pygame.init()
     w, h = 800, 600
-    background_color = (255, 255, 255)
+    background_color = [255, 255, 255]
     screen = pygame.display.set_mode((w, h))
     game_folder = os.path.dirname(__file__)
     img_folder = os.path.join(game_folder, 'img')
@@ -240,11 +253,10 @@ if __name__ == '__main__':
     running = True
     game_start = False
     while running:
-        while not game_start:
+        while not game_start and running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
-                    break
             field.render()
             field.draw()
             dino.update()
