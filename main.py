@@ -112,7 +112,8 @@ class Dino(pygame.sprite.Sprite):
             if self.isJump:
                 self.rect.y += self.vy
                 self.vy += self.grav * (3 if self.isDown else 1)
-                self.image_tick = 0
+                if not self.isDown:
+                    self.image_tick = 0
             if self.rect.y >= self.y:
                 self.rect.y = self.y
                 self.isJump = False
@@ -120,7 +121,8 @@ class Dino(pygame.sprite.Sprite):
     def down(self):
         if (pygame.key.get_pressed()[pygame.K_LSHIFT] or pygame.key.get_pressed()[pygame.K_DOWN]):
             self.isDown = True
-            self.image_tick = (self.image_tick + 1) % 2 + 4
+            if self.counter % 5 == 0 and self.isDown:
+                self.image_tick = (self.image_tick + 1) % 2 + 4
         else:
             self.isDown = False
 
@@ -129,7 +131,7 @@ class Dino(pygame.sprite.Sprite):
         if self.isStart:
             self.down()
             self.change_sprite_tick()
-            if self.counter % 5 == 0:
+            if self.counter % 5 == 0 and not self.isJump and not self.isDown:
                 self.image_tick = (self.image_tick + 1) % 2 + 2
             self.counter += 1
 
