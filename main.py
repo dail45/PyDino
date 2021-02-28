@@ -20,7 +20,7 @@ def load_sprite_sheet(sheetname, x, y, sx=-1, sy=-1, colorkey=None):
             image = image.convert()
             image.blit(sheet, (0, 0), rect)
             if colorkey is not None:
-                if colorkey is -1:
+                if colorkey == -1:
                     colorkey = image.get_at((0, 0))
                 image.set_colorkey(colorkey, 16384)
             if sx != -1 or sy != -1:
@@ -86,7 +86,7 @@ class Dino(pygame.sprite.Sprite):
         self.counter = 0
 
         self.grav = 0.6
-        self.default_jump_speed = -10.8
+        self.default_jump_speed = -11
         self.vy = 0
         self.tick_of_btn_jump_pressed = 0
         self.isJump = False
@@ -111,7 +111,7 @@ class Dino(pygame.sprite.Sprite):
                     self.vy = -9
             if self.isJump:
                 self.rect.y += self.vy
-                self.vy += self.grav * (3 if self.isDown else 1)
+                self.vy += self.grav * (3.5 if self.isDown else 1)
                 if not self.isDown:
                     self.image_tick = 0
             if self.rect.y >= self.y:
@@ -160,7 +160,7 @@ class Dino(pygame.sprite.Sprite):
 
 
 class Cactus(pygame.sprite.Sprite):
-    def __init__(self, speed=5):
+    def __init__(self):
         pygame.sprite.Sprite.__init__(self, self.group)
         self.images = [pygame.image.load(os.path.join(img_folder, 'Enemy/big_cactus_x1.png')),
                        pygame.image.load(os.path.join(img_folder, 'Enemy/big_cactus_x2.png')),
@@ -175,20 +175,19 @@ class Cactus(pygame.sprite.Sprite):
         if index > 2:
             self.rect.y -= 5
         self.rect.left = w + self.rect.width
-        self.speed = speed
 
     def draw(self):
         screen.blit(self.image, self.rect)
 
     def update(self):
-        self.rect.x -= self.speed
+        self.rect.x -= v
 
         if self.rect.right < 0:
             self.kill()
 
 
 class Pterodactyl(pygame.sprite.Sprite):
-    def __init__(self, speed=5):
+    def __init__(self):
         pygame.sprite.Sprite.__init__(self, self.group)
         self.images = [pygame.image.load(os.path.join(img_folder, 'Enemy/harpy/harpy1.png')),
                        pygame.image.load(os.path.join(img_folder, 'Enemy/harpy/harpy2.png'))]
@@ -197,7 +196,6 @@ class Pterodactyl(pygame.sprite.Sprite):
         self.rect.y = self.harpy_h[random.randrange(0, 3)]
         self.rect.left = w + self.rect.width
         self.image = self.images[0]
-        self.speed = speed
         self.index = 0
         self.counter = 0
 
@@ -208,7 +206,7 @@ class Pterodactyl(pygame.sprite.Sprite):
         if self.counter % 10 == 0:
             self.index = (self.index + 1) % 2
         self.image = self.images[self.index]
-        self.rect.x -= self.speed
+        self.rect.x -= v
         self.counter += 1
         if self.rect.right < 0:
             self.kill()
@@ -229,6 +227,7 @@ class Field(pygame.sprite.Sprite):
         self.last_speed_up = 0
         self.last_checkpoint = 0
         self.last_day_and_night_switch = 0
+        self.last_time = 0
 
     def update(self):
         global v
@@ -236,17 +235,21 @@ class Field(pygame.sprite.Sprite):
             self.rect.x -= v
             if -v < self.rect.x % 50 < v:
                 self.count += 1
-            if v < 10 and self.tick_counter % 700 == 699 and self.last_speed_up != self.tick_counter:
+            if v < 11 and self.tick_counter % 700 == 699 and self.last_speed_up != self.tick_counter:
                 self.last_speed_up = self.tick_counter
                 v += 1
         if self.rect.left <= -1450:
             self.rect.left = 0
-        if self.get_score() > 0 and self.get_score() % 100 == 0:
-            self.day_and_night_switch()
+        if self.get_score() > 0:
+            if self.get_score() % 700 == 0 and self.time:
+                self.day_and_night_switch()
+                self.last_time = self.get_score()
+            if self.get_score() - self.last_time >= 200 and not self.time:
+                self.day_and_night_switch()
         if self.get_score() % 100 == 0 and self.get_score() != self.last_checkpoint:
             self.last_checkpoint = self.get_score()
             self.checkPoint_sound.play()
-        if v < 10:
+        if v < 11:
             self.tick_counter += 1
 
     def start(self):
@@ -281,7 +284,6 @@ class Field(pygame.sprite.Sprite):
 
 class Hi_scoreboard():
     def __init__(self):
-        #self.images, self.rect1 = load_sprite_sheet('numbers.png', 12, 1, 11, int(11 * 6 / 5), -1)
         self.image = pygame.image.load("img/HI.png")
         self.HI_rect = self.image.get_rect()
         self.HI_rect.top = h * 0.1
@@ -299,7 +301,7 @@ class Hi_scoreboard():
 if __name__ == '__main__':
     pygame.init()
     w, h = 800, 600
-    v = 5
+    v = 6
     fps = 60
     hi_score = 0
     background_color = [255, 255, 255]
@@ -322,11 +324,11 @@ if __name__ == '__main__':
     Pterodactyl.group = harpys_group
     obstacle = None
 
-
     clock = pygame.time.Clock()
     running = True
     game_start = False
     game_over = False
+    first_flag = True
 
     while running:
         # Смерть дино
@@ -340,11 +342,13 @@ if __name__ == '__main__':
                     dino = Dino(field)
                     sprites.add(field)
                     sprites.add(dino)
+                    v = 5
                     cactus_group = pygame.sprite.Group()
                     Cactus.group = cactus_group
                     harpys_group = pygame.sprite.Group()
                     Pterodactyl.group = harpys_group
                     scoreboard = Scoreboard()
+                    scoreboard.update(0)
                     obstacle = None
                     game_start = False
                     game_over = False
@@ -365,6 +369,10 @@ if __name__ == '__main__':
             cactus_group.draw(screen)
             harpys_group.draw(screen)
 
+            if not first_flag:
+                scoreboard.draw()
+                hi_scoreboard.draw()
+
             clock.tick(fps)
             pygame.display.flip()
             if dino.isJump:
@@ -372,6 +380,7 @@ if __name__ == '__main__':
             if not dino.isJump and dino.isStart:
                 game_start = True
                 field.start()
+                first_flag = False
 
         # обработка главных событий
         for event in pygame.event.get():
@@ -382,14 +391,14 @@ if __name__ == '__main__':
         if len(cactus_group) < 2:
             if len(cactus_group) != 0:
                 if obstacle.rect.right < w * 0.7 and random.randrange(0, 50) == 1:
-                    obstacle = Cactus(v)
+                    obstacle = Cactus()
                     sprites.add(obstacle)
             else:
-                obstacle = Cactus(v)
+                obstacle = Cactus()
                 sprites.add(obstacle)
-        if len(harpys_group) == 0 and random.randrange(0, 200) == 1 and field.get_score() > 600:
+        if len(harpys_group) == 0 and random.randrange(0, 200) == 1 and field.get_score() > 500:
             if obstacle.rect.right < w * 0.7:
-                obstacle = Pterodactyl(v)
+                obstacle = Pterodactyl()
                 sprites.add(obstacle)
 
         # Проверка столкновений
