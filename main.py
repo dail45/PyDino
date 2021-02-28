@@ -235,6 +235,8 @@ class Field(pygame.sprite.Sprite):
             self.rect.x -= v
             if -v < self.rect.x % 50 < v:
                 self.count += 1
+                if self.count > 99999:
+                    self.count = 0
             if v < 11 and self.tick_counter % 700 == 699 and self.last_speed_up != self.tick_counter:
                 self.last_speed_up = self.tick_counter
                 v += 1
@@ -310,6 +312,14 @@ if __name__ == '__main__':
     img_folder = os.path.join(game_folder, 'img')
     sprites = pygame.sprite.Group()
     die_sound = pygame.mixer.Sound('sound/die.wav')
+
+    return_btn_sprite = pygame.sprite.Sprite()
+    return_btn_img = pygame.image.load(os.path.join(img_folder, 'return btn.png'))
+    return_btn_sprite.image = return_btn_img
+    return_btn_sprite.rect = return_btn_img.get_rect()
+    return_btn_sprite.rect.x = w // 2 - 46 / 2
+    return_btn_sprite.rect.y = h // 3 - 40 / 2
+
     field = Field(screen)
     dino = Dino(field)
     sprites.add(field)
@@ -342,7 +352,7 @@ if __name__ == '__main__':
                     dino = Dino(field)
                     sprites.add(field)
                     sprites.add(dino)
-                    v = 5
+                    v = 6
                     cactus_group = pygame.sprite.Group()
                     Cactus.group = cactus_group
                     harpys_group = pygame.sprite.Group()
@@ -421,6 +431,8 @@ if __name__ == '__main__':
         sprites.draw(screen)  # Отрисовка основных спрайтов
         scoreboard.update(field.get_score())  # Обновление счётчика
         scoreboard.draw()  # Отрисовка счётчика
+        if game_over:
+            screen.blit(return_btn_img, return_btn_sprite.rect)
 
         # Отображение рекордов
         if hi_score > 0:
